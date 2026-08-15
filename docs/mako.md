@@ -38,7 +38,7 @@ current palette).
 
 Launched via Hyprland's `hyprland.start` autostart block (see
 [hyprland.md](hyprland.md)), not a home-manager systemd service — same
-reasoning as waybar (keep autostart centralized). Reloaded after a
+reasoning as quickshell (keep autostart centralized). Reloaded after a
 wallpaper change via wallust's `[hooks]` entry: `makoctl reload`.
 
 Test it any time with `notify-send "title" "body"`.

@@ -12,9 +12,10 @@
     (import ./programs/fish.nix)
     (import ./programs/kitty.nix)
     (import ./programs/neovim.nix)
+    (import ./programs/vscode.nix)
     (import ./programs/hyprland.nix)
     (import ./programs/wallust.nix)
-    (import ./programs/waybar.nix)
+    (import ./programs/quickshell.nix)
     (import ./programs/wofi.nix)
     (import ./programs/mako.nix)
     (import ./programs/btop.nix)
@@ -36,7 +37,8 @@
     git
     gh # GitHub CLI; `gh auth login` sets up passwordless HTTPS push
     claude-code
-
+    lazyspotify
+    
     # Verifying NVIDIA is actually doing the rendering:
     # - nvidia-smi is already on PATH system-wide via hardware.nvidia in
     #   configuration.nix; it lists processes/utilization per GPU.

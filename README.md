@@ -48,7 +48,13 @@ This file is just the quickstart.
 5. **Check the timezone** (`time.timeZone` in `hosts/nixos/configuration.nix`)
    is right.
 
-6. **Build it.** The very first time, flakes may not be enabled yet in the
+6. **Drop a login-screen background video into `~/Videos/wallpapers/`**
+   (optional — `sddmBackgroundSource` in `hosts/nixos/configuration.nix`
+   falls back to skipping this gracefully if the file isn't there, so this
+   can wait). Point `sddmBackgroundSource` at it if the filename differs
+   from the default.
+
+7. **Build it.** The very first time, flakes may not be enabled yet in the
    installer's default config, so pass the flag explicitly:
    ```bash
    sudo nixos-rebuild switch --flake ~/nixos-qshell#nixos \
@@ -57,10 +63,10 @@ This file is just the quickstart.
    This will take a while the first time — it's compiling/fetching Hyprland,
    the NVIDIA driver, and everything else in the config.
 
-7. **Reboot.** You should land on the SDDM login screen; pick the
+8. **Reboot.** You should land on the SDDM login screen; pick the
    "Hyprland (uwsm-managed)" session, log in, and it drops you into Hyprland.
 
-8. **Commit and push:**
+9. **Commit and push:**
    ```bash
    git add -A
    git commit -m "Initial NixOS + Hyprland config"
@@ -136,9 +142,40 @@ opens a picker) re-themes the terminal, status bar, launcher, notifications,
 editor, and GTK/Qt apps via [wallust](https://codeberg.org/explosion-mental/wallust),
 with no rebuild required. `home/theme.nix` (an earlier static-palette
 placeholder) no longer exists — `home/programs/wallust.nix` is the current
-source of truth.
+source of truth. The SDDM login screen also pulls its colors from wallust,
+but is the one exception to "no rebuild required" — see below.
 
 Full architecture, the template/reload-hook system, and gotchas hit while
 building it (a monitor-scaling cursor-gap bug, wallust failing on
 low-color placeholder images, nixpkgs's `swww`→`awww` rename) are documented
 in **[docs/theming.md](docs/theming.md)**.
+
+## Status bar: quickshell
+
+The status bar is [Quickshell](https://quickshell.org/), replacing an
+earlier waybar setup. QML lives in `quickshell/` at the repo root (plain
+QML, not Nix-templated); `home/programs/quickshell.nix` just links that
+folder into `~/.config/quickshell`. It's a deliberately minimal bootstrap
+(one panel, a clock, wallust colors wired up live) — build it out yourself
+as you learn Quickshell's QML API. See
+**[docs/quickshell/](docs/quickshell/README.md)** for how it's wired and
+where to go next.
+
+## SDDM login background
+
+The login screen uses [sddm-astronaut-theme](https://github.com/Keyitdev/sddm-astronaut-theme)
+with a personal video background and a color palette sourced from wallust.
+Unlike everything above, this **does** need a rebuild to pick up changes:
+
+- **Video**: drop an mp4/gif/image into `~/Videos/wallpapers/` and update
+  `sddmBackgroundSource` in `hosts/nixos/configuration.nix` to point at it,
+  then `nrs`. (The greeter runs as its own system user and can't read into
+  a `700` `$HOME`, so a `system.activationScripts` step copies it out to a
+  world-readable system path on every switch — see
+  [docs/system.md](docs/system.md#animated-login-background).)
+- **Colors**: pick a wallpaper you like, run `sddm-theme-sync` to copy
+  wallust's current palette into `hosts/nixos/sddm-colors.nix`, then `nrs`.
+
+Full details, including *why* this one thing can't be live like the rest,
+in [docs/system.md](docs/system.md#animated-login-background) and
+[docs/theming.md](docs/theming.md#sddm-a-rebuild-time-exception).

@@ -1,5 +1,17 @@
-{ config, pkgs, inputs, ... }:
+{ config, pkgs, lib, inputs, ... }:
 
+let
+  # Personal video wallpaper for the SDDM greeter — lives in the user's home
+  # (not the Nix store, not git; it's a personal ~15MB file), moved here from
+  # ~/Downloads. sddm-astronaut-theme's Background loader (Qt.resolvedUrl in
+  # its Main.qml) accepts an absolute path fine, but SDDM's greeter runs as
+  # its own system user, and $HOME is 700 — it can't read into
+  # ~/Videos/wallpapers directly. So system.activationScripts.sddmBackground
+  # below copies it out to a world-readable path on every `nixos-rebuild
+  # switch` instead of loosening home directory permissions.
+  sddmBackgroundSource = "/home/harshvse/Videos/wallpapers/girl-behind-curtains-live-wallpaper.mp4";
+  sddmBackgroundTarget = "/var/lib/sddm-astronaut/background.mp4";
+in
 {
   imports = [
     ./hardware-configuration.nix
@@ -153,10 +165,10 @@
   services.displayManager.sddm = {
     enable = true;
     wayland.enable = true;
-    # sddm-astronaut-theme adds an animated (video) background; the
-    # "hyprland_kath" preset ships an mp4. ThemeDir is resolved from
-    # /run/current-system/sw/share/sddm/themes, so the theme package must
-    # live in environment.systemPackages below, not sddm.extraPackages.
+    # sddm-astronaut-theme adds an animated (video) background. ThemeDir is
+    # resolved from /run/current-system/sw/share/sddm/themes, so the theme
+    # package must live in environment.systemPackages below, not
+    # sddm.extraPackages.
     theme = "sddm-astronaut-theme";
     # The mp4 background is rendered via a QML QtMultimedia element, which
     # lives in the *greeter's own* Qt plugin/QML path, separate from the
@@ -165,8 +177,29 @@
     extraPackages = [ pkgs.kdePackages.qtmultimedia ];
   };
 
+  # Copies the personal wallpaper video (see `let` above) out to a
+  # world-readable system path on every switch, since the greeter can't read
+  # into the user's 700 $HOME. `|| true` on the copy: harmless if the source
+  # is ever missing (e.g. building this repo fresh on another machine before
+  # the user has dropped their own video in).
+  system.activationScripts.sddmBackground = ''
+    mkdir -p $(dirname ${sddmBackgroundTarget})
+    cp ${sddmBackgroundSource} ${sddmBackgroundTarget} 2>/dev/null || true
+    chmod 644 ${sddmBackgroundTarget} 2>/dev/null || true
+  '';
+
   environment.systemPackages = [
-    (pkgs.sddm-astronaut.override { embeddedTheme = "hyprland_kath"; })
+    (pkgs.sddm-astronaut.override {
+      embeddedTheme = "hyprland_kath";
+      # Colors come from hosts/nixos/sddm-colors.nix, which is a wallust
+      # template output a human syncs in (see wallust.nix's
+      # `sddm-theme-sync` script) — not live-reactive like the rest of the
+      # theming system, since this whole attrset is baked into a Nix-store
+      # `.conf.user` file at build time. See docs/theming.md.
+      themeConfig = (import ./sddm-colors.nix) // {
+        Background = sddmBackgroundTarget;
+      };
+    })
   ];
 
   ##################

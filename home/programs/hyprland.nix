@@ -52,14 +52,20 @@
 
       -- Border colors come from the wallust-generated palette (see
       -- wallust.nix) so they follow the wallpaper too; the hardcoded values
-      -- are only a fallback for before the very first wallust run. NOTE:
-      -- `general.col.*` naming is a best-effort guess (mirrors hyprlang's
-      -- dotted `general:col.active_border` key) — not confirmed against the
-      -- Lua API docs, so double check this against `hyprctl reload` output
-      -- if borders don't pick up colors.
+      -- are only a fallback for before the very first wallust run (or after
+      -- the template's key names change and `~/.cache/wallust/hyprland-
+      -- colors.lua` hasn't been regenerated with a `wallust run` yet — a
+      -- stale file with the old keys still `dofile()`s successfully, so the
+      -- required-keys check below matters as much as the ok/nil check).
+      -- NOTE: `general.col.*` naming is a best-effort guess (mirrors
+      -- hyprlang's dotted `general:col.active_border` key) — not confirmed
+      -- against the Lua API docs, so double check this against `hyprctl
+      -- reload` output if borders don't pick up colors.
       local ok, hyprColors = pcall(dofile, os.getenv("HOME") .. "/.cache/wallust/hyprland-colors.lua")
-      if not ok or not hyprColors then
-          hyprColors = { active_border = "#89b4fa", inactive_border = "#45475a" }
+      local hasRequiredKeys = ok and hyprColors
+          and hyprColors.active_border_1 and hyprColors.active_border_2 and hyprColors.inactive_border
+      if not hasRequiredKeys then
+          hyprColors = { active_border_1 = "#f38ba8", active_border_2 = "#f5c2e7", inactive_border = "#45475a" }
       end
 
       hl.config({
@@ -82,9 +88,24 @@
               border_size = 2,
               layout = "dwindle",
               col = {
-                  active_border   = "rgb(" .. hyprColors.active_border:gsub("#", "") .. ")",
+                  -- The Lua API takes gradients as a table (colors + angle),
+                  -- not a "<color> <color> <deg>" string like hyprlang's
+                  -- legacy syntax; each color needs the alpha channel
+                  -- explicit (rgba, 8 hex digits) — plain rgb() only works
+                  -- for the solid inactive_border below.
+                  active_border = {
+                      colors = {
+                          "rgba(" .. hyprColors.active_border_1:gsub("#", "") .. "ff)",
+                          "rgba(" .. hyprColors.active_border_2:gsub("#", "") .. "ff)",
+                      },
+                      angle = 45,
+                  },
                   inactive_border = "rgb(" .. hyprColors.inactive_border:gsub("#", "") .. ")",
               },
+          },
+
+          decoration = {
+              rounding = 2,
           },
       })
 
@@ -97,7 +118,7 @@
       hl.on("hyprland.start", function ()
           hl.exec_cmd("awww-daemon")
           hl.exec_cmd("sleep 0.5 && awww restore")
-          hl.exec_cmd("waybar")
+          hl.exec_cmd("quickshell")
           hl.exec_cmd("mako")
           -- Belt-and-suspenders alongside home.pointerCursor in gtk-qt.nix:
           -- `hyprctl setcursor` tells the compositor itself directly,

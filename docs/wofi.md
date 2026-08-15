@@ -25,7 +25,7 @@ Bound to `SUPER + R` in `hyprland.nix` (`wofi --show drun` — app-launcher
 mode, listing installed `.desktop` entries). `allow_images = true` lets it
 render app icons in that mode.
 
-## Styling — same pattern as waybar
+## Styling — same pattern as every other themed app
 
 ```nix
 style = ''
@@ -36,9 +36,8 @@ style = ''
 '';
 ```
 
-Colors come from wallust's generated `wofi-colors.css` via `@import`, same
-mechanism as waybar — see [theming.md](theming.md). Font: JetBrainsMono
-Nerd Font, 13px.
+Colors come from wallust's generated `wofi-colors.css` via `@import` — see
+[theming.md](theming.md). Font: JetBrainsMono Nerd Font, 13px.
 
 ## The wallpaper picker (`wallpaper-select`)
 

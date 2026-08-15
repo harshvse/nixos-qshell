@@ -107,8 +107,10 @@ hardware. Adjust up/down in that range to taste.
 
 ```lua
 local ok, hyprColors = pcall(dofile, os.getenv("HOME") .. "/.cache/wallust/hyprland-colors.lua")
-if not ok or not hyprColors then
-    hyprColors = { active_border = "#89b4fa", inactive_border = "#45475a" }
+local hasRequiredKeys = ok and hyprColors
+    and hyprColors.active_border_1 and hyprColors.active_border_2 and hyprColors.inactive_border
+if not hasRequiredKeys then
+    hyprColors = { active_border_1 = "#f38ba8", active_border_2 = "#f5c2e7", inactive_border = "#45475a" }
 end
 
 hl.config({
@@ -119,25 +121,47 @@ hl.config({
         border_size = 2,
         layout = "dwindle",
         col = {
-            active_border   = "rgb(" .. hyprColors.active_border:gsub("#", "") .. ")",
+            active_border = {
+                colors = {
+                    "rgba(" .. hyprColors.active_border_1:gsub("#", "") .. "ff)",
+                    "rgba(" .. hyprColors.active_border_2:gsub("#", "") .. "ff)",
+                },
+                angle = 45,
+            },
             inactive_border = "rgb(" .. hyprColors.inactive_border:gsub("#", "") .. ")",
         },
+    },
+
+    decoration = {
+        rounding = 2,
     },
 })
 ```
 
 Border colors come from wallust's generated palette (see
 [theming.md](theming.md)) rather than a hardcoded value, so they follow the
-wallpaper. The hardcoded `hyprColors` fallback only matters before the very
-first `wallust run` has ever produced
-`~/.cache/wallust/hyprland-colors.lua`.
+wallpaper. The active border is a 45° gradient between `color1` and
+`color5` (see `wallust.nix`'s `[templates.hyprland]`) rather than a solid
+color; the inactive border stays solid `color0`. The hardcoded `hyprColors`
+fallback covers two cases: before the very first `wallust run`, and a stale
+`~/.cache/wallust/hyprland-colors.lua` left over from before the template's
+key names changed (it still `dofile()`s fine, just without the keys the
+current config expects — hence checking for the specific keys, not just
+`ok`/non-nil).
 
-> **Note**: `general.col.*` key naming here (mirroring hyprlang's dotted
-> `general:col.active_border` key) is a best-effort translation into the Lua
-> API's nested-table convention — it has not been independently confirmed
-> against Hyprland's own Lua API docs. If borders don't pick up the
-> generated colors after a `hyprctl reload`, this is the first thing to
-> double-check.
+> **Gotcha hit building this**: the Lua API's gradient syntax is *not* the
+> same as hyprlang's legacy `"<color> <color> <angle>deg"` string — it's a
+> table, `{ colors = {"rgba(...)", "rgba(...)"}, angle = <number> }` (see
+> `/nix/store/*-hyprland-*/share/hypr/hyprland.lua`, the reference config
+> shipped with the package, for the canonical example). Each color needs
+> its alpha channel explicit (`rgba`, 8 hex digits) — plain `rgb()` only
+> works for a solid color. Also, `rounding` lives under `decoration` in
+> 0.56, not `general` — `general.rounding` is silently rejected as an
+> unknown key. Getting either of these wrong doesn't just fail to apply:
+> Hyprland drops into emergency mode (a bare fallback config) on the next
+> reload/restart until the error is fixed. `hyprctl configerrors` after a
+> `hyprctl reload` is the fastest way to see the actual parse error instead
+> of guessing from symptoms.
 
 ## Autostart
 
@@ -145,7 +169,7 @@ first `wallust run` has ever produced
 hl.on("hyprland.start", function ()
     hl.exec_cmd("awww-daemon")
     hl.exec_cmd("sleep 0.5 && awww restore")
-    hl.exec_cmd("waybar")
+    hl.exec_cmd("quickshell")
     hl.exec_cmd("mako")
 end)
 ```
@@ -154,7 +178,7 @@ end)
 fires only on a fresh compositor start, not on every config reload (there is
 a separate `"config.reloaded"` event for that, unused here). Launches the
 wallpaper daemon (`awww-daemon`), restores the last wallpaper, and starts
-waybar + mako. See [theming.md](theming.md) for why these are launched here
+quickshell + mako. See [theming.md](theming.md) for why these are launched here
 rather than via each program's own home-manager `systemd.enable` /
 `services.*` option, and for the operational gotcha that a *live* session
 predating this block won't have these processes until the next

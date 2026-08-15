@@ -233,14 +233,25 @@ services.displayManager.sddm = {
   extraPackages = [ pkgs.kdePackages.qtmultimedia ];
 };
 
+system.activationScripts.sddmBackground = ''
+  mkdir -p $(dirname ${sddmBackgroundTarget})
+  cp ${sddmBackgroundSource} ${sddmBackgroundTarget} 2>/dev/null || true
+  chmod 644 ${sddmBackgroundTarget} 2>/dev/null || true
+'';
+
 environment.systemPackages = [
-  (pkgs.sddm-astronaut.override { embeddedTheme = "hyprland_kath"; })
+  (pkgs.sddm-astronaut.override {
+    embeddedTheme = "hyprland_kath";
+    themeConfig = (import ./sddm-colors.nix) // { Background = sddmBackgroundTarget; };
+  })
 ];
 ```
 
 [sddm-astronaut](https://github.com/Keyitdev/sddm-astronaut-theme) (packaged
 in nixpkgs as `sddm-astronaut`) supports video/gif backgrounds via QtMultimedia;
-the `hyprland_kath` preset ships an animated mp4. `services.displayManager.sddm.theme`
+the `hyprland_kath` preset ships one by default, but `Background` (a key in
+the theme's own config, overridable via `themeConfig`) can point anywhere —
+here, at a personal video. `services.displayManager.sddm.theme`
 only takes a theme *name* — it's resolved against `ThemeDir`
 (`/run/current-system/sw/share/sddm/themes`), which is populated from
 `environment.systemPackages`, not `sddm.extraPackages` (that option only
@@ -261,7 +272,40 @@ The `embeddedTheme` override picks which `Themes/*.conf` preset gets baked in
 (`ls` the theme's `Themes/` and `Backgrounds/` dirs for other options — several
 ship mp4/gif backgrounds, most are static images). For deeper tweaks than
 swapping presets, `sddm-astronaut` also takes a `themeConfig` override that
-generates a `.conf.user` overlay on top of the chosen preset.
+generates a `.conf.user` overlay on top of the chosen preset — this repo uses
+it for both the custom background and the color palette below.
+
+#### Custom video background: the $HOME permission problem
+
+The video itself lives at `~/Videos/wallpapers/` (a personal ~15MB file, not
+committed to git), and `Background` in a theme's `.conf` accepts an absolute
+path fine (the theme's QML resolves it with `Qt.resolvedUrl`, which handles
+absolute paths as-is). The catch: SDDM's greeter runs as its own system user,
+and `$HOME` is `700` — the greeter can't traverse into it to read the file.
+
+Rather than loosening home directory permissions (traversal bits on `$HOME`,
+`~/Videos`, `~/Videos/wallpapers`) to let a system service reach into a user's
+home, `system.activationScripts.sddmBackground` copies the video out to a
+world-readable path (`/var/lib/sddm-astronaut/background.mp4`, mode `644`)
+on every `nixos-rebuild switch`. The `2>/dev/null || true` guards make this a
+no-op (not a build failure) if the source file doesn't exist yet — e.g.
+building this repo fresh on a machine before you've dropped your own video
+into `~/Videos/wallpapers/`.
+
+#### Colors: baked at rebuild time, not live
+
+Every other themed program in this repo reads wallust's output live, from
+outside the Nix store, so a wallpaper change re-themes it with no rebuild
+(see [theming.md](theming.md)). SDDM can't do that — the greeter reads its
+theme from an immutable Nix store path, built long before any user session
+(and wallust run) exists. So the color keys in `themeConfig` come from
+`hosts/nixos/sddm-colors.nix`, a checked-in Nix attrset that's the *output*
+of a wallust template (`[templates.sddm]` in `wallust.nix`, rendered to
+`~/.cache/wallust/sddm-colors.nix`), synced into the repo by hand via the
+`sddm-theme-sync` script (also in `wallust.nix`) and only taking effect on
+the next `nrs`. This is a scope boundary, not a bug — same honest
+"reactive everywhere except where the architecture genuinely can't" pattern
+as the GTK/Qt and Neovim limitations documented in theming.md.
 
 ## Audio: PipeWire
 
@@ -276,8 +320,9 @@ services.pipewire = {
 ```
 
 PipeWire with PulseAudio compatibility (`pulse.enable`) — this is what makes
-waybar's `pulseaudio` module and `wpctl` (used in its mute-toggle click
-binding) work; see [waybar.md](waybar.md).
+`wpctl` (the usual tool for a bar's volume/mute controls, e.g. `wpctl
+set-mute @DEFAULT_AUDIO_SINK@ toggle`) work; see
+[quickshell/README.md](quickshell/README.md).
 
 ## Fonts
 
@@ -289,7 +334,7 @@ fonts.packages = with pkgs; [
 ];
 ```
 
-JetBrainsMono Nerd Font is the one font every themed app (kitty, waybar,
+JetBrainsMono Nerd Font is the one font every themed app (kitty, quickshell,
 wofi, mako) references by name — see [theming.md](theming.md).
 
 ## User account

@@ -3,7 +3,7 @@
 Source: `home/programs/wallust.nix` (the engine), plus the theming-relevant
 parts of every other `home/programs/*.nix` file. This is the subsystem that
 ties the rest of the docs together — read this one first if you're trying
-to understand why `kitty.nix`, `waybar.nix`, etc. look the way they do.
+to understand why `kitty.nix`, `quickshell.nix`, etc. look the way they do.
 
 ## The problem this solves
 
@@ -47,7 +47,8 @@ Nix-managed since they're read-only source material) to a runtime `target`:
 | Template | Target | Consumed by |
 |---|---|---|
 | `kitty.conf` | `~/.cache/wallust/kitty-colors.conf` | kitty, via `include` |
-| `waybar.css` | `~/.cache/wallust/waybar-colors.css` | waybar, via `@import` |
+| `quickshell-colors.json` | `~/.cache/wallust/quickshell-colors.json` | quickshell, via `FileView`+`JsonAdapter` |
+| `vscode-color-theme.json` | `~/.vscode/extensions/wallust-theme/themes/wallust-color-theme.json` | VS Code — wallust owns this file outright, see [vscode.md](vscode.md) |
 | `wofi.css` | `~/.cache/wallust/wofi-colors.css` | wofi, via `@import` |
 | `hyprland-colors.lua` | `~/.cache/wallust/hyprland-colors.lua` | Hyprland, via `dofile()` |
 | `nvim-colors.lua` | `~/.cache/wallust/nvim-colors.lua` | Neovim, via `dofile()` |
@@ -55,6 +56,7 @@ Nix-managed since they're read-only source material) to a runtime `target`:
 | `mako-config` | `~/.config/mako/config` | mako — wallust owns this file outright |
 | `btop.theme` | `~/.config/btop/themes/wallust.theme` | btop — wallust owns this file outright |
 | `fastfetch.jsonc` | `~/.config/fastfetch/config.jsonc` | fastfetch — wallust owns this file outright |
+| `sddm-colors.nix` | `~/.cache/wallust/sddm-colors.nix` | **not** read live — synced by hand into `hosts/nixos/sddm-colors.nix`, see below |
 
 Template syntax is Tera/Jinja2-like: `{{background}}`, `{{foreground}}`,
 `{{cursor}}`, `{{color0}}`–`{{color15}}`.
@@ -66,7 +68,6 @@ Also in `wallust.toml`, run after templates render:
 ```toml
 [hooks]
 kitty    = "kitty @ --to unix:/tmp/kitty-wallust-socket load-config >/dev/null 2>&1 || true"
-waybar   = "pkill -SIGUSR2 waybar >/dev/null 2>&1 || true"
 mako     = "makoctl reload >/dev/null 2>&1 || true"
 hyprland = "hyprctl reload >/dev/null 2>&1 || true"
 ```
@@ -75,15 +76,26 @@ hyprland = "hyprctl reload >/dev/null 2>&1 || true"
   "unix:/tmp/kitty-wallust-socket"` in `kitty.nix`) because these hooks run
   outside any kitty session, so `$KITTY_LISTEN_ON` isn't set — the hook
   can't rely on kitty's usual per-instance auto socket.
-- **waybar**: no live CSS reload API; `SIGUSR2` is the documented way to get
-  it to reload.
 - **mako**/**hyprland**: `makoctl reload` / `hyprctl reload` are the normal
   CLI reload commands, unrelated to wallust specifically.
+- **quickshell has no entry here** — its bar reads `quickshell-colors.json`
+  through a `FileView` with `watchChanges: true` (see
+  [quickshell/README.md](quickshell/README.md)), so it notices the file
+  change and re-themes itself with no external signal needed. Better than
+  waybar's old `pkill -SIGUSR2` reload, which this replaced.
 - **Neovim and GTK/Qt apps are deliberately not in this hook list** —
   Neovim re-reads its palette only at startup (see [neovim.md](neovim.md)),
   and already-running GTK/Qt apps don't hot-reload CSS/theme changes; only
   new instances pick up a change. This is a known, accepted limitation, not
   an oversight.
+- **VS Code is a harder version of the same limitation**: no CLI reload
+  trick exists at all, so it isn't hooked either — a running window needs
+  "Developer: Reload Window" by hand to pick up a new
+  `wallust-color-theme.json`. See [vscode.md](vscode.md).
+- **SDDM is a step further still**: not just un-hooked but un-reachable —
+  its theme is baked into the Nix store at build time, so no runtime hook
+  could reach it even in principle. See "SDDM: a rebuild-time exception"
+  below.
 
 ## First-boot seeding
 
@@ -142,7 +154,7 @@ launches, once per compositor start (not on every config reload):
 ```lua
 hl.exec_cmd("awww-daemon")
 hl.exec_cmd("sleep 0.5 && awww restore")
-hl.exec_cmd("waybar")
+hl.exec_cmd("quickshell")
 hl.exec_cmd("mako")
 ```
 
@@ -153,9 +165,21 @@ config reload doesn't reset the desktop to a blank background.
 Hyprland start, a live session that predates this config change won't have
 these daemons running until you log out/in (or reboot) — `hyprctl reload`
 alone does not re-trigger `hyprland.start`. If wallpaper switching seems
-"not working," check first whether `awww-daemon`/`waybar`/`mako` are
-actually running (`pgrep -a -f 'awww|waybar|mako'`) before assuming the
+"not working," check first whether `awww-daemon`/`quickshell`/`mako` are
+actually running (`pgrep -a -f 'awww|quickshell|mako'`) before assuming the
 config itself is broken.
+
+## SDDM: a rebuild-time exception
+
+Every program above reads wallust's output live, from a file outside the
+Nix store. SDDM's greeter can't — it runs from an immutable Nix store path,
+started by systemd before any user session (and thus any `wallust run`)
+exists. So `[templates.sddm]` renders a Nix attrset instead of the theme's
+native format, a human copies it into the repo with `sddm-theme-sync`
+(`wallust.nix`), and it only takes effect on the next `nrs`. Same for the
+login video background (`~/Videos/wallpapers/`, copied to a world-readable
+system path since the greeter can't read into a `700` `$HOME`). Full
+writeup in [system.md](system.md#animated-login-background).
 
 ## GTK/Qt: an honest scope boundary
 
@@ -172,9 +196,10 @@ actually delivered — see [gtk-qt.md](gtk-qt.md) for the full breakdown:
 
 1. `SUPER+W` → pick a wallpaper.
 2. Within ~1s: kitty's `include`d colors change (reload via kitty's
-   remote-control hook, or open a new window), waybar restarts styled,
-   `notify-send test` shows themed colors, `hyprctl reload` picks up new
-   border colors, and a freshly launched `btop` shows the new theme.
+   remote-control hook, or open a new window), quickshell's bar re-themes
+   itself with no restart, `notify-send test` shows themed colors,
+   `hyprctl reload` picks up new border colors, and a freshly launched
+   `btop` shows the new theme.
 3. A **freshly opened** Neovim instance picks up the new palette (existing
    buffers don't, by design — see [neovim.md](neovim.md)).
 4. A **freshly launched** GTK/Qt app reflects the new accent color; already

@@ -19,11 +19,12 @@ that file on disk is the ground truth; these docs describe it.
 | [theming.md](theming.md) | The wallust-driven, wallpaper-reactive theming system — the architecture that ties every app below together |
 | [hyprland.md](hyprland.md) | `home/programs/hyprland.nix` — monitors, input, keybinds, animations, autostart |
 | [kitty.md](kitty.md) | `home/programs/kitty.nix` |
-| [waybar.md](waybar.md) | `home/programs/waybar.nix` |
+| [quickshell/README.md](quickshell/README.md) | `quickshell/` (QML) + `home/programs/quickshell.nix` (links it in) — status bar (bootstrap only, WIP) |
 | [wofi.md](wofi.md) | `home/programs/wofi.nix` — launcher + the wallpaper picker |
 | [mako.md](mako.md) | `home/programs/mako.nix` |
 | [btop.md](btop.md) | `home/programs/btop.nix` |
 | [neovim.md](neovim.md) | `home/programs/neovim.nix` |
+| [vscode.md](vscode.md) | `home/programs/vscode.nix` — extensions, settings, wallust-driven theme |
 | [fish.md](fish.md) | `home/programs/fish.nix` — shell + starship prompt |
 | [gtk-qt.md](gtk-qt.md) | `home/programs/gtk-qt.nix` — GTK/Qt app theming |
 
@@ -37,13 +38,17 @@ flake.nix
                  ├─ programs/fish.nix
                  ├─ programs/kitty.nix
                  ├─ programs/neovim.nix
+                 ├─ programs/vscode.nix
                  ├─ programs/hyprland.nix
                  ├─ programs/wallust.nix   ← palette engine, everything else reads from it
-                 ├─ programs/waybar.nix
+                 ├─ programs/quickshell.nix   ← links in ../../quickshell/ (QML, repo root)
                  ├─ programs/wofi.nix
                  ├─ programs/mako.nix
                  ├─ programs/btop.nix
                  └─ programs/gtk-qt.nix
+
+quickshell/              (repo root, not under home/) — plain QML, not Nix-templated
+  └─ shell.qml
 ```
 
 `home/theme.nix` (a static hardcoded palette) existed early on and has since
