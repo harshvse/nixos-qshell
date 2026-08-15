@@ -66,3 +66,32 @@ Notes worth keeping as you actually build these out: which properties
 needed a tracker/binder to populate, any QML gotchas specific to this
 version (`0.3.0`, pinned via nixpkgs), whatever ends up being non-obvious
 in six months. This file is the place for it.
+
+## Gotcha: `Variants` delegate children can't see outer ids directly
+
+A child nested inside `Variants { PanelWindow { ... } }`'s delegate
+(anything below the `PanelWindow` itself) can't resolve a binding to an id
+declared elsewhere in the document (like `palette`, the `JsonAdapter`'s
+id) the normal way — the expression evaluates once as `undefined` and
+never updates, even though the *exact same expression* on the delegate
+root (`PanelWindow`) itself binds and updates fine. Confirmed with
+`quickshell`'s own `WARN scene: ... Unable to assign [undefined] to
+QColor` — reproduces with any outer property, not just the palette, and
+regardless of nesting depth below the root.
+
+Workaround: forward it through a property declared on the delegate root,
+and have children reference that instead of the outer id directly:
+
+```qml
+PanelWindow {
+    id: bar
+    property var pal: palette   // binds/updates correctly, unlike a child referencing `palette` directly
+
+    Text {
+        color: bar.pal.color5   // not: palette.color5 — would silently stay undefined
+    }
+}
+```
+
+Apply this to every new child you add under the bar's `PanelWindow` that
+needs a palette color (or any other outer-document id).

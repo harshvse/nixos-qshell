@@ -225,6 +225,23 @@ hyprland-session.target, not recommended unless debugging" warning.
 Picking the plain "Hyprland" entry still works, but skips that integration
 and brings the warning back.
 
+### Secret Service keyring (gnome-keyring)
+
+```nix
+services.gnome.gnome-keyring.enable = true;
+security.pam.services.sddm.enableGnomeKeyring = true;
+```
+
+Nothing in a bare Hyprland + SDDM setup provides the
+`org.freedesktop.secrets` D-Bus API, which apps that store credentials
+(e.g. `lazyspotify`'s OAuth token — see [lazyspotify.md](lazyspotify.md))
+expect to find. `services.gnome.gnome-keyring.enable` registers
+`gnome-keyring` as that provider without pulling in the rest of GNOME.
+Hooking `enableGnomeKeyring` into sddm's PAM stack means it unlocks
+automatically with your login password at the SDDM prompt (creating the
+"login" keyring on first login if none exists yet) — no separate keyring
+password/prompt to manage on top of your account password.
+
 ### Animated login background
 
 ```nix

@@ -134,6 +134,16 @@ hl.config({
 
     decoration = {
         rounding = 2,
+
+        -- Compositor-wide blur-behind: only visually applies to
+        -- windows/surfaces that are actually semi-transparent, so this
+        -- alone doesn't blur anything by itself — see kitty.md's
+        -- `background_opacity` for the one app currently using it.
+        blur = {
+            enabled = true,
+            size = 3,
+            passes = 2,
+        },
     },
 })
 ```
@@ -162,6 +172,14 @@ current config expects — hence checking for the specific keys, not just
 > reload/restart until the error is fixed. `hyprctl configerrors` after a
 > `hyprctl reload` is the fastest way to see the actual parse error instead
 > of guessing from symptoms.
+
+`decoration.blur` is enabled compositor-wide but is a no-op until some
+window actually has a semi-transparent background — currently that's just
+kitty (`background_opacity` in [kitty.md](kitty.md)). To blur a different
+app instead/also, give it its own opacity setting (or a `windowrulev2
+opacity ...,class:^(...)$` rule) rather than lowering `general`'s
+`active_opacity`/`inactive_opacity` here, which would make every window
+transparent.
 
 ## Autostart
 
@@ -230,12 +248,32 @@ hl.animation({ leaf = "workspacesOut", enabled = true, speed = 1,   bezier = "al
 | `SUPER + R` | Launch wofi (`drun` mode — app launcher) |
 | `SUPER + W` | Launch `wallpaper-select` — the wallpaper picker, see [theming.md](theming.md) |
 | `SUPER + F` | Toggle fullscreen |
+| `SUPER + S` | Launch `lazyspotify` (Spotify TUI) in a kitty window — see [lazyspotify.md](lazyspotify.md) for setup |
+| `SUPER + SHIFT + S` | Launch `spotify_player` (Spotify TUI) in a kitty window — see [spotify-player.md](spotify-player.md) |
 | `SUPER + ←/→/↑/↓` | Move focus between windows in that direction |
+| `SUPER + left-click drag` | Move a floating window (drag across monitors to move it to that monitor's workspace) |
+| `SUPER + right-click drag` | Resize a floating window |
 | `SUPER + [0-9]` | Switch to workspace 1–10 (`0` maps to workspace 10) |
 | `SUPER + SHIFT + [0-9]` | Move focused window to workspace 1–10 |
 | `SUPER + scroll wheel` | Cycle to next/previous existing workspace |
 | `SUPER + comma` / `SUPER + period` | Jump focus to the left/right monitor |
 | `SUPER + SHIFT + comma` / `SUPER + SHIFT + period` | Move the active workspace to the left/right monitor |
+
+## Mouse move/resize
+
+```lua
+hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
+hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+```
+
+`{ mouse = true }` is the Lua-API's equivalent of hyprlang's legacy `bindm =`
+— it makes the bind track the mouse for the duration of the button press
+instead of firing once. `mouse:272`/`mouse:273` are the left/right button
+codes. `hl.dsp.window.drag()` moves a floating window under the cursor;
+dragging it across a monitor boundary is native Hyprland behavior — the
+window gets re-parented onto that monitor's active workspace mid-drag, so
+this is also how you move a window to a different workspace by dragging
+rather than `SUPER + SHIFT + [0-9]`.
 
 ## General
 

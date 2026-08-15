@@ -15,6 +15,7 @@ Source: `home/programs/kitty.nix`.
       confirm_os_window_close = 0;
       allow_remote_control = "yes";
       listen_on = "unix:/tmp/kitty-wallust-socket";
+      background_opacity = "0.85";
     };
     extraConfig = ''
       include ${config.home.homeDirectory}/.cache/wallust/kitty-colors.conf
@@ -38,6 +39,10 @@ Source: `home/programs/kitty.nix`.
   instance from *outside* any kitty session — the hook process has no
   `$KITTY_LISTEN_ON` env var to fall back on, since it isn't running inside
   kitty itself.
+- `background_opacity = "0.85"`: a light transparency on the background —
+  the blur itself is Hyprland's job (`decoration.blur` in
+  [hyprland.md](hyprland.md#borders--palette-driven), compositor-wide), this
+  setting just gives it a semi-transparent surface to blur.
 
 ## Colors: no static values here
 

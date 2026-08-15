@@ -106,6 +106,17 @@
 
           decoration = {
               rounding = 2,
+
+              -- Compositor-wide blur-behind: only visually applies to
+              -- windows/surfaces that are actually semi-transparent, so
+              -- this alone doesn't make anything blurry — it's what makes
+              -- kitty's background_opacity (kitty.nix) render blurred
+              -- instead of just see-through.
+              blur = {
+                  enabled = true,
+                  size = 3,
+                  passes = 2,
+              },
           },
       })
 
@@ -152,12 +163,25 @@
       hl.bind(mainMod .. " + R",      hl.dsp.exec_cmd("wofi --show drun"))
       hl.bind(mainMod .. " + W",      hl.dsp.exec_cmd("wallpaper-select"))
       hl.bind(mainMod .. " + F",      hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
+      hl.bind(mainMod .. " + S",      hl.dsp.exec_cmd("kitty --class lazyspotify -e lazyspotify"))
+      hl.bind(mainMod .. " + SHIFT + S", hl.dsp.exec_cmd("kitty --class spotify-player -e spotify_player"))
 
       -- Move focus between windows with mainMod + arrow keys
       hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
       hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
       hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
       hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
+
+      -- Move/resize floating windows by holding mainMod + LMB/RMB and
+      -- dragging (the `{ mouse = true }` opt is the Lua-API equivalent of
+      -- hyprlang's legacy `bindm =`). mouse:272/273 are the left/right
+      -- button codes. Dragging a floating window across a monitor
+      -- boundary is native Hyprland behavior — it re-parents the window
+      -- onto that monitor's active workspace mid-drag, so this covers
+      -- moving windows between workspaces via drag, not just repositioning
+      -- within one.
+      hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
+      hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
       -----------------------------
       ---- WORKSPACE MANAGEMENT ----

@@ -38,7 +38,8 @@
     gh # GitHub CLI; `gh auth login` sets up passwordless HTTPS push
     claude-code
     lazyspotify
-    
+    spotify-player # SUPER + SHIFT + S; see docs/spotify-player.md
+
     # Verifying NVIDIA is actually doing the rendering:
     # - nvidia-smi is already on PATH system-wide via hardware.nvidia in
     #   configuration.nix; it lists processes/utilization per GPU.

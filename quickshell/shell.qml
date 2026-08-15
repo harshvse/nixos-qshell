@@ -40,13 +40,23 @@ ShellRoot {
             required property var modelData
             screen: modelData
 
+            // Children of a Variants delegate can't resolve bindings to an
+            // outer document id directly — `palette.color5` inside the Text
+            // below evaluates once as undefined and never updates, even
+            // though the exact same expression works fine right here on the
+            // delegate root. Forwarding it through a property declared on
+            // the root (which *does* bind/update correctly) and having
+            // children reference that instead works around it. Apply the
+            // same `bar.pal.xxx` pattern to any new child you add here.
+            property var pal: palette
+
             anchors { top: true; left: true; right: true }
             implicitHeight: 32
             color: palette.background
 
             Text {
                 anchors.centerIn: parent
-                color: palette.foreground
+                color: bar.pal.color5
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 12
 

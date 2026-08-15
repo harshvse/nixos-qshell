@@ -177,6 +177,15 @@ in
     extraPackages = [ pkgs.kdePackages.qtmultimedia ];
   };
 
+  # Secret Service (org.freedesktop.secrets D-Bus API) — apps that store
+  # OAuth tokens/passwords (e.g. lazyspotify, see docs/lazyspotify.md) need
+  # a keyring provider registered, which nothing here provides otherwise.
+  # `enableGnomeKeyring` on sddm's PAM stack unlocks it automatically with
+  # the login password (creating the "login" keyring on first login if one
+  # doesn't exist yet) — no separate keyring prompt/password to manage.
+  services.gnome.gnome-keyring.enable = true;
+  security.pam.services.sddm.enableGnomeKeyring = true;
+
   # Copies the personal wallpaper video (see `let` above) out to a
   # world-readable system path on every switch, since the greeter can't read
   # into the user's 700 $HOME. `|| true` on the copy: harmless if the source

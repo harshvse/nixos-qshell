@@ -27,6 +27,8 @@ that file on disk is the ground truth; these docs describe it.
 | [vscode.md](vscode.md) | `home/programs/vscode.nix` — extensions, settings, wallust-driven theme |
 | [fish.md](fish.md) | `home/programs/fish.nix` — shell + starship prompt |
 | [gtk-qt.md](gtk-qt.md) | `home/programs/gtk-qt.nix` — GTK/Qt app theming |
+| [lazyspotify.md](lazyspotify.md) | Spotify TUI — package in `home/home.nix`, config deliberately NOT Nix-managed (holds a personal Spotify client ID) |
+| [spotify-player.md](spotify-player.md) | Spotify TUI alternative — fully Nix-managed, no personal Spotify app/secret needed |
 
 ## How the pieces fit together
 

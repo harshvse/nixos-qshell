@@ -16,6 +16,11 @@
       confirm_os_window_close = 0;
       allow_remote_control = "yes";
       listen_on = "unix:/tmp/kitty-wallust-socket";
+
+      # Blur itself is Hyprland's job (decoration.blur in hyprland.nix,
+      # compositor-wide) — this just makes the background semi-transparent
+      # so there's something for it to blur.
+      background_opacity = "0.85";
     };
     extraConfig = ''
       include ${config.home.homeDirectory}/.cache/wallust/kitty-colors.conf

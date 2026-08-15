@@ -161,6 +161,22 @@ as you learn Quickshell's QML API. See
 **[docs/quickshell/](docs/quickshell/README.md)** for how it's wired and
 where to go next.
 
+## Spotify TUI: lazyspotify
+
+`lazyspotify` (a terminal Spotify client) is installed via `home.packages`,
+launched with `SUPER + S`. Its config isn't Nix-managed like everything
+else here — it needs a Spotify client ID tied to your own Spotify Developer
+account, which must never end up committed to this (public) repo. One-time
+setup: register an app at the
+[Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and
+drop the client ID into `~/.config/lazyspotify/config.yml`. Full steps in
+**[docs/lazyspotify.md](docs/lazyspotify.md)**.
+
+An alternative, `spotify-player` (`SUPER + SHIFT + S`), is also installed —
+it ships its own default OAuth client and needs no Developer Dashboard app
+or secret file, so it's fully Nix-managed. See
+**[docs/spotify-player.md](docs/spotify-player.md)**.
+
 ## SDDM login background
 
 The login screen uses [sddm-astronaut-theme](https://github.com/Keyitdev/sddm-astronaut-theme)
