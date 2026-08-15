@@ -1,8 +1,5 @@
 { config, pkgs, inputs, ... }:
 
-let
-  theme = import ./theme.nix;
-in
 {
   # CHANGE these two to match your actual username
   home.username = "harshvse";
@@ -13,11 +10,19 @@ in
 
   imports = [
     (import ./programs/fish.nix)
-    (import ./programs/kitty.nix { inherit theme; })
+    (import ./programs/kitty.nix)
     (import ./programs/neovim.nix)
     (import ./programs/hyprland.nix)
+    (import ./programs/wallust.nix)
+    (import ./programs/waybar.nix)
+    (import ./programs/wofi.nix)
+    (import ./programs/mako.nix)
+    (import ./programs/btop.nix)
+    (import ./programs/gtk-qt.nix)
   ];
 
+  # wofi and btop are configured (not just installed) by their own modules
+  # above; wallust.nix pulls in wallust; mako.nix pulls in mako.
   home.packages = with pkgs; [
     wl-clipboard
     grim       # screenshot
@@ -25,11 +30,12 @@ in
     fastfetch
     ripgrep
     fd
-    btop
+    awww # wallpaper daemon; nixpkgs renamed this from `swww`
     vim
     firefox
     git
-    wofi
+    gh # GitHub CLI; `gh auth login` sets up passwordless HTTPS push
+    claude-code
 
     # Verifying NVIDIA is actually doing the rendering:
     # - nvidia-smi is already on PATH system-wide via hardware.nvidia in

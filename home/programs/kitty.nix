@@ -1,8 +1,10 @@
-# This module takes `theme` as an argument instead of reading it from
-# specialArgs, which is what lets home.nix pass in a *different* palette
-# later (e.g. wallust output) without touching this file at all.
-{ theme }:
-{ pkgs, ... }:
+# Colors come from a wallust-generated file at runtime, not from Nix — see
+# wallust.nix. `include` re-reads that file every time kitty's config is
+# reloaded, so a wallpaper change re-themes kitty without a rebuild.
+# `listen_on` uses a fixed path (rather than the default per-instance socket)
+# because wallust's reload hook runs outside any kitty session, so it can't
+# rely on $KITTY_LISTEN_ON being set.
+{ config, ... }:
 {
   programs.kitty = {
     enable = true;
@@ -11,17 +13,12 @@
       size = 11;
     };
     settings = {
-      background = theme.background;
-      foreground = theme.foreground;
-      color0 = theme.black;
-      color1 = theme.red;
-      color2 = theme.green;
-      color3 = theme.yellow;
-      color4 = theme.blue;
-      color5 = theme.magenta;
-      color6 = theme.cyan;
-      color7 = theme.white;
       confirm_os_window_close = 0;
+      allow_remote_control = "yes";
+      listen_on = "unix:/tmp/kitty-wallust-socket";
     };
+    extraConfig = ''
+      include ${config.home.homeDirectory}/.cache/wallust/kitty-colors.conf
+    '';
   };
 }

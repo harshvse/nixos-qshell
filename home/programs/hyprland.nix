@@ -14,26 +14,43 @@
       -- REQUIRED: these are placeholders. After first boot with both monitors
       -- plugged in, run `hyprctl monitors` and replace monLeft/monRight below
       -- with the real connector names it reports (e.g. "DP-1", "HDMI-A-1").
-      local monLeft  = "MONITOR-LEFT"
-      local monRight = "MONITOR-RIGHT"
+      local monLeft  = "eDP-1"
+      local monRight = "HDMI-A-1"
 
       hl.monitor({
           output   = monLeft,
-          mode     = "1920x1080@60",
+          mode     = "1920x1080@144",
           position = "0x0",
-          scale    = 1,
+          scale    = 1.25,
       })
+      -- position is in logical (post-scale) space, not physical pixels:
+      -- monLeft is 1920 physical / 1.25 scale = 1536 logical wide, so
+      -- monRight must start at x=1536, not x=1920, or there's a gap the
+      -- cursor can't cross.
       hl.monitor({
           output   = monRight,
-          mode     = "1920x1080@60",
-          position = "1920x0",
-          scale    = 1,
+          mode     = "1920x1080@100",
+          position = "1536x0",
+          scale    = 1.25,
       })
+
+      -- Border colors come from the wallust-generated palette (see
+      -- wallust.nix) so they follow the wallpaper too; the hardcoded values
+      -- are only a fallback for before the very first wallust run. NOTE:
+      -- `general.col.*` naming is a best-effort guess (mirrors hyprlang's
+      -- dotted `general:col.active_border` key) — not confirmed against the
+      -- Lua API docs, so double check this against `hyprctl reload` output
+      -- if borders don't pick up colors.
+      local ok, hyprColors = pcall(dofile, os.getenv("HOME") .. "/.cache/wallust/hyprland-colors.lua")
+      if not ok or not hyprColors then
+          hyprColors = { active_border = "#89b4fa", inactive_border = "#45475a" }
+      end
 
       hl.config({
           input = {
               kb_layout = "us",
               follow_mouse = 1,
+              sensitivity = -0.5,
           },
 
           general = {
@@ -41,8 +58,41 @@
               gaps_out = 8,
               border_size = 2,
               layout = "dwindle",
+              col = {
+                  active_border   = "rgb(" .. hyprColors.active_border:gsub("#", "") .. ")",
+                  inactive_border = "rgb(" .. hyprColors.inactive_border:gsub("#", "") .. ")",
+              },
           },
       })
+
+      -- Launch the wallpaper daemon, bar, and notification daemon once at
+      -- compositor start (not on every config reload). `awww restore`
+      -- reapplies whatever wallpaper was last set, so a config reload/logout
+      -- doesn't reset it to nothing. (nixpkgs renamed the `swww` package to
+      -- `awww` upstream — same CLI subcommands, just the `awww`/
+      -- `awww-daemon` binary names.)
+      hl.on("hyprland.start", function ()
+          hl.exec_cmd("awww-daemon")
+          hl.exec_cmd("sleep 0.5 && awww restore")
+          hl.exec_cmd("waybar")
+          hl.exec_cmd("mako")
+      end)
+
+      -- Named curves must be declared before hl.animation() can reference them.
+      hl.curve("linear",       { type = "bezier", points = { {0, 0}, {1, 1} } })
+      hl.curve("almostLinear", { type = "bezier", points = { {0.5, 0.5}, {0.75, 1} } })
+      hl.curve("easy",         { type = "spring", mass = 1, stiffness = 238.1191, dampening = 24.21279333 })
+
+      -- Speed up window open/close and workspace-switch animations (speed is
+      -- in ds, 1ds = 100ms); values below are roughly half Hyprland's defaults.
+      hl.animation({ leaf = "windows",      enabled = true, speed = 2.5, spring = "easy" })
+      hl.animation({ leaf = "windowsIn",    enabled = true, speed = 2,   spring = "easy", style = "popin 87%" })
+      hl.animation({ leaf = "windowsOut",   enabled = true, speed = 1,   bezier = "linear", style = "popin 87%" })
+      hl.animation({ leaf = "fadeIn",       enabled = true, speed = 1,   bezier = "almostLinear" })
+      hl.animation({ leaf = "fadeOut",      enabled = true, speed = 1,   bezier = "almostLinear" })
+      hl.animation({ leaf = "workspaces",   enabled = true, speed = 1,   bezier = "almostLinear", style = "fade" })
+      hl.animation({ leaf = "workspacesIn", enabled = true, speed = 0.6, bezier = "almostLinear", style = "fade" })
+      hl.animation({ leaf = "workspacesOut",enabled = true, speed = 1,   bezier = "almostLinear", style = "fade" })
 
       local mainMod = "SUPER"
 
@@ -51,6 +101,7 @@
       hl.bind(mainMod .. " + M",      hl.dsp.exit())
       hl.bind(mainMod .. " + V",      hl.dsp.window.float({ action = "toggle" }))
       hl.bind(mainMod .. " + R",      hl.dsp.exec_cmd("wofi --show drun"))
+      hl.bind(mainMod .. " + W",      hl.dsp.exec_cmd("wallpaper-select"))
       hl.bind(mainMod .. " + F",      hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" }))
 
       -- Move focus between windows with mainMod + arrow keys
