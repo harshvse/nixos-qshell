@@ -18,7 +18,7 @@
   ##################
   # Networking
   ##################
-  networking.hostName = "laptop"; # must match the key in flake.nix
+  networking.hostName = "nixos"; # must match the key in flake.nix
   networking.networkmanager.enable = true;
 
   ##################
@@ -125,9 +125,9 @@
   ##################
   programs.fish.enable = true; # must be enabled at system level to be a valid login shell
 
-  users.users.changeme = { # CHANGE "changeme" to your actual username
+  users.users.harshvse = { # CHANGE "changeme" to your actual username
     isNormalUser = true;
-    description = "Your Name";
+    description = "Harsh Verma";
     extraGroups = [ "networkmanager" "wheel" "video" "input" ];
     shell = pkgs.fish;
   };

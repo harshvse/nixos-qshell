@@ -5,8 +5,8 @@ let
 in
 {
   # CHANGE these two to match your actual username
-  home.username = "changeme";
-  home.homeDirectory = "/home/changeme";
+  home.username = "harshvse";
+  home.homeDirectory = "/home/harshvse";
 
   # Match whatever release you installed from; don't bump this casually later.
   home.stateVersion = "25.05";
@@ -26,6 +26,7 @@ in
     ripgrep
     fd
     btop
+    vim
   ];
 
   programs.home-manager.enable = true;

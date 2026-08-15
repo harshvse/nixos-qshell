@@ -23,11 +23,11 @@
     {
       # Add more entries here later for future machines, e.g.
       #   nixosConfigurations.desktop = nixpkgs.lib.nixosSystem { ... };
-      nixosConfigurations.laptop = nixpkgs.lib.nixosSystem {
+      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         inherit system;
         specialArgs = { inherit inputs; };
         modules = [
-          ./hosts/laptop/configuration.nix
+          ./hosts/nixos/configuration.nix
 
           home-manager.nixosModules.home-manager
           {
@@ -35,7 +35,7 @@
             home-manager.useUserPackages = true;
             home-manager.extraSpecialArgs = { inherit inputs; };
             # CHANGE "changeme" to your actual username
-            home-manager.users.changeme = import ./home/home.nix;
+            home-manager.users.harshvse= import ./home/home.nix;
           }
         ];
       };

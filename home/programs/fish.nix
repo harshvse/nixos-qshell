@@ -9,8 +9,8 @@
       ll = "ls -la";
       gs = "git status";
       # Rebuild your whole system from the flake in one word
-      nrs = "sudo nixos-rebuild switch --flake ~/nixos-config#laptop";
-      hms = "home-manager switch --flake ~/nixos-config#changeme"; # only if you split home-manager standalone later
+      nrs = "sudo nixos-rebuild switch --flake ~/nixos-config#nixos";
+      hms = "home-manager switch --flake ~/nixos-config#nixos"; # only if you split home-manager standalone later
     };
   };
 
