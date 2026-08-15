@@ -24,6 +24,13 @@ in
 
   xdg.configFile = {
     "wallust/wallust.toml".text = ''
+      # "dark16" generates 16 genuinely distinct colors (plain `dark` only
+      # picks 8 and duplicates them into the bright range); check_contrast
+      # rejects any color too close in luminance to the background, which is
+      # what was making some ANSI colors unreadable against dark wallpapers.
+      palette = "dark16"
+      check_contrast = true
+
       [templates.kitty]
       template = "kitty.conf"
       target = "~/.cache/wallust/kitty-colors.conf"

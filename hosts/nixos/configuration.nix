@@ -12,8 +12,18 @@
   ##################
   # Boot
   ##################
-  boot.loader.systemd-boot.enable = true;
+  # Windows lives on a separate physical disk (nvme0n1) with its own EFI
+  # System Partition. GRUB + os-prober scans every disk's ESP at boot-config
+  # build time and adds a chainload entry for whatever it finds, so it
+  # handles the cross-disk case without a manually-supplied device handle.
+  boot.loader.systemd-boot.enable = false;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.grub = {
+    enable = true;
+    efiSupport = true;
+    device = "nodev";
+    useOSProber = true;
+  };
 
   ##################
   # Networking
