@@ -30,6 +30,22 @@ in
     firefox
     git
     wofi
+
+    # Verifying NVIDIA is actually doing the rendering:
+    # - nvidia-smi is already on PATH system-wide via hardware.nvidia in
+    #   configuration.nix; it lists processes/utilization per GPU.
+    # - nvtop: live TUI GPU monitor, watches both the Intel iGPU and the
+    #   NVIDIA card side by side so you can see which one lights up.
+    # - mesa-demos: `glxinfo` — check `glxinfo | grep "OpenGL renderer"` vs
+    #   `nvidia-offload glxinfo | grep "OpenGL renderer"` to confirm offload
+    #   is actually switching the renderer to the NVIDIA GPU.
+    # - vulkan-tools: `vulkaninfo --summary` / `vkcube` for the Vulkan path.
+    # - glmark2: a real GPU benchmark, so nvtop/nvidia-smi has something to
+    #   show — run it via `nvidia-offload glmark2` and watch GPU load jump.
+    nvtopPackages.full
+    mesa-demos
+    vulkan-tools
+    glmark2
   ];
 
   programs.home-manager.enable = true;
