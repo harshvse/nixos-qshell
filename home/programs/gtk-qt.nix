@@ -17,6 +17,22 @@
     pkgs.qt6Packages.qtstyleplugin-kvantum
   ];
 
+  # `home.pointerCursor` is the one option that wires a cursor theme up
+  # everywhere at once: XCURSOR_THEME/XCURSOR_SIZE session variables (for
+  # Xwayland/GTK/Qt apps and anything else that reads them), gtk.cursorTheme
+  # (below, via gtk.enable), and an X11 Xcursor.theme resource.
+  # catppuccin-cursors is a multi-output derivation — one output per
+  # flavor+accent combo (`mochaDark`, `frappeBlue`, etc.); `mochaDark` ships
+  # both XCursor and native Hyprland `hyprcursor` formats.
+  home.pointerCursor = {
+    enable = true;
+    name = "catppuccin-mocha-dark-cursors";
+    package = pkgs.catppuccin-cursors.mochaDark;
+    size = 24;
+    gtk.enable = true;
+    x11.enable = true;
+  };
+
   gtk = {
     enable = true;
     theme = {
@@ -29,10 +45,6 @@
     iconTheme = {
       name = "Papirus-Dark";
       package = pkgs.papirus-icon-theme;
-    };
-    cursorTheme = {
-      name = "Adwaita";
-      package = pkgs.adwaita-icon-theme;
     };
 
     gtk3.extraCss = ''

@@ -50,7 +50,14 @@
           input = {
               kb_layout = "us",
               follow_mouse = 1,
-              sensitivity = -0.5,
+              -- libinput's default "adaptive" accel profile scales the
+              -- speed curve nonlinearly with how fast you move the mouse —
+              -- feels fine for slow movements but fast flicks jump
+              -- disproportionately. "flat" removes that curve entirely:
+              -- output speed is a straight 1:1 multiple of `sensitivity`,
+              -- consistent regardless of movement speed.
+              accel_profile = "flat",
+              sensitivity = -0.3,
           },
 
           general = {
@@ -76,6 +83,11 @@
           hl.exec_cmd("sleep 0.5 && awww restore")
           hl.exec_cmd("waybar")
           hl.exec_cmd("mako")
+          -- Belt-and-suspenders alongside home.pointerCursor in gtk-qt.nix:
+          -- `hyprctl setcursor` tells the compositor itself directly,
+          -- independent of whether XCURSOR_THEME/XCURSOR_SIZE made it into
+          -- this session's environment in time.
+          hl.exec_cmd("hyprctl setcursor catppuccin-mocha-dark-cursors 24")
       end)
 
       -- Named curves must be declared before hl.animation() can reference them.
