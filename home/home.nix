@@ -27,6 +27,9 @@ in
     fd
     btop
     vim
+    firefox
+    git
+    wofi
   ];
 
   programs.home-manager.enable = true;
