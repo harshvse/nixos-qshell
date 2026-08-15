@@ -149,12 +149,6 @@ lives in home-manager — see [hyprland.md](hyprland.md).
 ```nix
 programs.hyprland.withUWSM = true;
 
-programs.uwsm.waylandCompositors.hyprland = {
-  prettyName = "Hyprland";
-  comment = "Hyprland compositor managed by UWSM";
-  binPath = "/run/current-system/sw/bin/start-hyprland";
-};
-
 services.displayManager.sddm = {
   enable = true;
   wayland.enable = true;
@@ -167,8 +161,35 @@ this hardware. Switched to SDDM, which has native Wayland session support
 and is one of the few display managers Hyprland's own docs call out as
 working without caveats. Like regreet, SDDM reads
 `/share/wayland-sessions/*.desktop` and shows a session picker — pick
-**"Hyprland (UWSM)"** at login, not the plain "Hyprland" entry the
+**"Hyprland (uwsm-managed)"** at login, not the plain "Hyprland" entry the
 `programs.hyprland` module also registers.
+
+`withUWSM = true` on its own is enough to get a working, warning-free UWSM
+session — the `hyprland` package itself ships the
+"Hyprland (uwsm-managed)" `/share/wayland-sessions/hyprland-uwsm.desktop`
+entry unconditionally (`services.displayManager.sessionPackages = [ cfg.package ];`
+in the upstream `programs.hyprland` module runs regardless of `withUWSM`).
+That entry runs `uwsm start -e -D Hyprland hyprland.desktop`, which
+explicitly sets `XDG_CURRENT_DESKTOP=Hyprland` via `-D` and resolves the
+`hyprland.desktop` Desktop-Entry-ID argument through to the `start-hyprland`
+wrapper — so it never triggers Hyprland's "launched without start-hyprland"
+warning either. A previous version of this config additionally declared a
+`programs.uwsm.waylandCompositors.hyprland` block (with `binPath` pointed
+at `start-hyprland`) specifically to silence that warning — but that
+module generates its *own* `hyprland-uwsm.desktop` file at the exact same
+`/share/wayland-sessions/` path, with no `-D` flag, and it collided with
+and shadowed the good one shipped by the package. Since uwsm has no other
+way to know the desktop name, it fell back to seeding
+`XDG_CURRENT_DESKTOP` from the compositor binary's basename
+(`start-hyprland`, since `binPath` pointed at the wrapper rather than raw
+`Hyprland`) — then uwsm's own `hyprland.sh` plugin (triggered by
+`start-hyprland` matching its "contains hyprland" detection) unconditionally
+appended `Hyprland` on top, producing the bogus
+`XDG_CURRENT_DESKTOP=start-hyprland:Hyprland` and Hyprland's "unrecognized
+XDG_CURRENT_DESKTOP" warning at login — even though the session picker's
+selection was correct the whole time. Removed the redundant block; if this
+box ever needs a genuinely custom UWSM compositor entry again, don't reuse
+the same file name as an already-installed session package.
 
 **The greeter was never actually the problem — twice.** Both regreet and
 SDDM handed off correctly. Two separate bugs made it look like a greeter
@@ -196,14 +217,51 @@ touching the display manager: `~/.cache/hyprland/hyprlandCrashReport*.txt`
 render something (bug #2's family, or a genuine multi-GPU crash — see the
 `AQ_DRM_DEVICES` note above).
 
-`withUWSM = true` plus the `programs.uwsm.waylandCompositors.hyprland` block
-above is what generates that "Hyprland (UWSM)" entry: it launches Hyprland
-via `uwsm start -F -- Hyprland` instead of exec'ing it bare, which folds the
-compositor into systemd's `graphical-session.target` /
-`xdg-desktop-autostart.target` — this is also what silences Hyprland's own
-"started without hyprland-session.target, not recommended unless debugging"
-warning. Picking the plain "Hyprland" entry still works, but skips that
-integration and brings the warning back.
+`withUWSM = true` is what folds the compositor into systemd's
+`graphical-session.target`/`xdg-desktop-autostart.target` (via the
+"Hyprland (uwsm-managed)" entry described above) instead of exec'ing it
+bare — this is also what silences Hyprland's own "started without
+hyprland-session.target, not recommended unless debugging" warning.
+Picking the plain "Hyprland" entry still works, but skips that integration
+and brings the warning back.
+
+### Animated login background
+
+```nix
+services.displayManager.sddm = {
+  theme = "sddm-astronaut-theme";
+  extraPackages = [ pkgs.kdePackages.qtmultimedia ];
+};
+
+environment.systemPackages = [
+  (pkgs.sddm-astronaut.override { embeddedTheme = "hyprland_kath"; })
+];
+```
+
+[sddm-astronaut](https://github.com/Keyitdev/sddm-astronaut-theme) (packaged
+in nixpkgs as `sddm-astronaut`) supports video/gif backgrounds via QtMultimedia;
+the `hyprland_kath` preset ships an animated mp4. `services.displayManager.sddm.theme`
+only takes a theme *name* — it's resolved against `ThemeDir`
+(`/run/current-system/sw/share/sddm/themes`), which is populated from
+`environment.systemPackages`, not `sddm.extraPackages` (that option only
+extends the sddm binary's own Qt plugin path). So the theme package has to
+go in `environment.systemPackages` for SDDM to find it.
+
+That same `extraPackages` option, though, is exactly where the mp4 backdrop's
+runtime dependency belongs: the theme's QML imports `QtMultimedia` to play the
+video, and that plugin has to be resolvable from the *greeter process's* own
+Qt plugin/QML path — the system profile populated by `environment.systemPackages`
+doesn't feed that path. Without `kdePackages.qtmultimedia` in `sddm.extraPackages`,
+the greeter logs `qtmultimedia is not installed` and silently falls back to a
+static background. `sddm-astronaut`'s own `propagatedBuildInputs` include
+`qtmultimedia`, but propagation only reaches the system profile (via
+`environment.systemPackages`), not the separately-wrapped `sddm` binary.
+
+The `embeddedTheme` override picks which `Themes/*.conf` preset gets baked in
+(`ls` the theme's `Themes/` and `Backgrounds/` dirs for other options — several
+ship mp4/gif backgrounds, most are static images). For deeper tweaks than
+swapping presets, `sddm-astronaut` also takes a `themeConfig` override that
+generates a `.conf.user` overlay on top of the chosen preset.
 
 ## Audio: PipeWire
 

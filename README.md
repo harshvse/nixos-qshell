@@ -58,7 +58,7 @@ This file is just the quickstart.
    the NVIDIA driver, and everything else in the config.
 
 7. **Reboot.** You should land on the SDDM login screen; pick the
-   "Hyprland (UWSM)" session, log in, and it drops you into Hyprland.
+   "Hyprland (uwsm-managed)" session, log in, and it drops you into Hyprland.
 
 8. **Commit and push:**
    ```bash

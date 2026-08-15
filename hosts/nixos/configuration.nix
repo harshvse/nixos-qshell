@@ -121,22 +121,22 @@
     # started without hyprland-session.target, not recommended unless
     # debugging" warning and gives XDG autostart units + a proper user
     # session for free.
+    #
+    # This alone (plus the hyprland package's own bundled session entry,
+    # registered unconditionally by the module) is enough: it ships a
+    # "Hyprland (uwsm-managed)" /share/wayland-sessions/hyprland-uwsm.desktop
+    # that already runs `uwsm start -e -D Hyprland hyprland.desktop` — i.e.
+    # explicitly sets XDG_CURRENT_DESKTOP=Hyprland and resolves through the
+    # start-hyprland wrapper internally, so it never triggers the "Hyprland
+    # is being launched without start-hyprland" warning either. Do NOT also
+    # add a `programs.uwsm.waylandCompositors.hyprland` block: it generates
+    # a *second* file at that exact same path with no `-D` flag (defaults
+    # XDG_CURRENT_DESKTOP to the compositor binary's basename), which
+    # collides with and shadows this good one — that's what caused
+    # `XDG_CURRENT_DESKTOP=start-hyprland:Hyprland` (basename `start-hyprland`
+    # from a binPath pointed at the wrapper, with `Hyprland` appended on top
+    # by uwsm's own hyprland.sh plugin).
     withUWSM = true;
-  };
-
-  # Registers a "Hyprland (UWSM)" entry in /share/wayland-sessions so
-  # the greeter's session picker launches it via `uwsm start -F --`,
-  # matching what withUWSM above expects instead of execing Hyprland bare.
-  #
-  # binPath must be `start-hyprland`, not the raw `Hyprland` binary: the
-  # bare binary logs "WARNING: Hyprland is being launched without
-  # start-hyprland. This is highly advised against." on every startup.
-  # `start-hyprland` is the wrapper Hyprland itself ships for exactly this
-  # (systemd/uwsm) launch path — see hyprwm/Hyprland discussion #12661.
-  programs.uwsm.waylandCompositors.hyprland = {
-    prettyName = "Hyprland";
-    comment = "Hyprland compositor managed by UWSM";
-    binPath = "/run/current-system/sw/bin/start-hyprland";
   };
 
   xdg.portal = {
@@ -148,12 +148,26 @@
   # greeter on this box, so use SDDM instead — it has native Wayland
   # session support and is one of the few display managers Hyprland's own
   # docs call out as working without caveats. Presents a session picker
-  # built from /share/wayland-sessions, so pick "Hyprland (UWSM)" at login
-  # rather than the plain "Hyprland" entry.
+  # built from /share/wayland-sessions, so pick "Hyprland (uwsm-managed)"
+  # at login rather than the plain "Hyprland" entry.
   services.displayManager.sddm = {
     enable = true;
     wayland.enable = true;
+    # sddm-astronaut-theme adds an animated (video) background; the
+    # "hyprland_kath" preset ships an mp4. ThemeDir is resolved from
+    # /run/current-system/sw/share/sddm/themes, so the theme package must
+    # live in environment.systemPackages below, not sddm.extraPackages.
+    theme = "sddm-astronaut-theme";
+    # The mp4 background is rendered via a QML QtMultimedia element, which
+    # lives in the *greeter's own* Qt plugin/QML path, separate from the
+    # system profile above — without this the greeter logs "qtmultimedia is
+    # not installed" and falls back to a static background.
+    extraPackages = [ pkgs.kdePackages.qtmultimedia ];
   };
+
+  environment.systemPackages = [
+    (pkgs.sddm-astronaut.override { embeddedTheme = "hyprland_kath"; })
+  ];
 
   ##################
   # Audio (Pipewire)
