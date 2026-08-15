@@ -22,6 +22,40 @@ variable trick used for keybind modifiers (see
 A plain `local mainMod = "SUPER"` inside real Lua sidesteps that bug
 entirely.
 
+## `systemd.enable = false` — required alongside UWSM
+
+```nix
+wayland.windowManager.hyprland.systemd.enable = false;
+```
+
+2026-08-15: login would drop to SDDM, log in, briefly show the desktop
+cursor, then bounce straight back to the login screen — no crash report,
+Hyprland's own log just stopped mid-startup. Root cause: home-manager's
+`wayland.windowManager.hyprland` module defaults `systemd.enable = true`,
+which injects a `hyprland.start` hook running
+`systemctl --user stop hyprland-session.target && systemctl --user start
+hyprland-session.target` to push env vars into systemd/dbus for
+autostart units.
+
+`hyprland-session.target` has `BindsTo=graphical-session.target` +
+`PropagatesStopTo=graphical-session.target`. Since this machine uses UWSM
+(`programs.hyprland.withUWSM` in `configuration.nix`), UWSM's own
+`wayland-session@Hyprland.target` is *also* `BindsTo=graphical-session.target`,
+and the actual compositor unit, `wayland-wm@Hyprland.service`, is
+`BindsTo=wayland-session@Hyprland.target`. So stopping
+`hyprland-session.target` cascades: → stops `graphical-session.target` →
+stops `wayland-session@Hyprland.target` → stops `wayland-wm@Hyprland.service`
+— i.e. home-manager's own startup hook was killing Hyprland itself a couple
+seconds after login, every time. Confirmed via a SIGSEGV coredump
+(`coredumpctl list`) during Aquamarine's session teardown in that hook's
+wake, and via `systemctl --user cat` on all four units to trace the
+`BindsTo`/`PropagatesStopTo` chain above.
+
+UWSM already owns systemd/env integration for the session (its own
+env-preloader service + `wayland-session-waitenv.service`), so
+home-manager's competing integration is both redundant and actively
+harmful here — disable it whenever `withUWSM = true` is set.
+
 ## Monitors
 
 ```lua
@@ -45,6 +79,12 @@ hl.monitor({ output = monRight, mode = "1920x1080@100", position = "1536x0", sca
   change either monitor's resolution/scale, recompute this the same way:
   `position of monitor N = sum of (physical_width / scale) for all monitors
   to its left`.
+- HDMI-A-1 (`monRight`) is wired to the NVIDIA GPU, not the Intel iGPU that
+  eDP-1 is on. It will show up as disconnected/absent in `hyprctl monitors`
+  unless the NVIDIA card (`/dev/dri/card0`) is included in the system-level
+  `AQ_DRM_DEVICES` env var — see [system.md](system.md). Aquamarine only
+  scans cards listed there; a card left out never has its connectors
+  scanned at all, monitor settings here notwithstanding.
 
 ## Input
 

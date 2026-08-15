@@ -4,6 +4,22 @@
     enable = true;
     xwayland.enable = true;
 
+    # UWSM (configuration.nix: programs.hyprland.withUWSM) already owns
+    # session/env-var integration via its own wayland-session@Hyprland.target
+    # and env-preloader service. home-manager's OWN systemd integration
+    # (default true) additionally injects a hyprland.start hook that runs
+    # `systemctl --user stop hyprland-session.target && ... start ...` to
+    # push env vars into systemd/dbus. That target's unit
+    # (BindsTo=graphical-session.target, PropagatesStopTo=graphical-session.target)
+    # cascades through UWSM's wayland-session@Hyprland.target
+    # (BindsTo=graphical-session.target) down to wayland-wm@Hyprland.service
+    # (BindsTo=wayland-session@Hyprland.target) — i.e. stopping
+    # hyprland-session.target on startup was killing Hyprland itself a couple
+    # seconds after login (login screen -> brief render -> back to login).
+    # Disabling it here leaves UWSM as the sole owner of that env-propagation
+    # job, which it already does via `uwsm finalize` / its own preloader.
+    systemd.enable = false;
+
     # Hyprland's native config language is now Lua (hyprland.lua) rather than
     # hyprlang (hyprland.conf). Written as raw extraConfig instead of the
     # `settings` attrset — home-manager's Nix->Lua generator currently mangles

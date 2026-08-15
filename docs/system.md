@@ -92,8 +92,36 @@ environment.sessionVariables = {
   LIBVA_VDPAU_DRIVER = "nvidia";
   __GLX_VENDOR_LIBRARY_NAME = "nvidia";
   WLR_NO_HARDWARE_CURSORS = "1"; # fixes invisible/corrupt cursor on nvidia
+  AQ_DRM_DEVICES = "/dev/dri/card1:/dev/dri/card0";
 };
 ```
+
+`AQ_DRM_DEVICES` tells Aquamarine (Hyprland's rendering backend) which DRM
+devices to scan; a card left out of this list simply never gets its
+connectors scanned, so any monitor wired to it won't show up. eDP-1 is on
+the Intel iGPU (`card1`, PCI `00:02.0`), HDMI-A-1 on the NVIDIA GPU
+(`card0`) — both need to be listed for both displays to work. It's a
+`:`-separated list, first entry is primary.
+
+This must be raw `/dev/dri/cardN` device nodes, **not**
+`/dev/dri/by-path/*` symlinks: Aquamarine parses `AQ_DRM_DEVICES` as a
+`:`-separated list, and by-path names contain colons themselves
+(`pci-0000:00:02.0-card`), so a by-path value gets shredded into bogus
+paths and Aquamarine finds zero GPUs — Hyprland then aborts in
+`CCompositor::initServer` (`Cannot open backend: no allocator available`)
+before a single frame is drawn. Confirm which `cardN` is which device with
+`readlink /dev/dri/by-path/pci-0000:00:02.0-card` (substitute the bus ID
+from `intelBusId`/`nvidiaBusId` above).
+
+This was pinned to `"/dev/dri/card1"` (Intel only) for a while, after
+Hyprland appeared to crash a few seconds after login with "Cannot commit
+when a page-flip is awaiting" during a cross-GPU commit. That pin predates
+the colon-parsing bug above being diagnosed, though, so it's unclear
+whether that was a genuine multi-GPU issue or the same zero-GPUs-found bug
+in disguise. If Hyprland starts crashing again a few seconds in with both
+cards listed, revert to Intel-only and treat HDMI-A-1 as unsupported until
+fixed upstream — check `coredumpctl list` / `~/.cache/hyprland/hyprlandCrashReport*.txt`
+to tell which failure mode you're in.
 
 Verifying offload is actually working (packages installed via
 `home/home.nix`, see below): `nvidia-smi`, `nvtop`, `glxinfo` (mesa-demos),
@@ -116,20 +144,66 @@ This just enables the compositor and its XDG desktop portal at the system
 level; the actual Hyprland *config* (monitors, keybinds, theming, autostart)
 lives in home-manager — see [hyprland.md](hyprland.md).
 
-## Login: greetd + tuigreet
+## Login: SDDM, Hyprland via UWSM
 
 ```nix
-services.greetd = {
+programs.hyprland.withUWSM = true;
+
+programs.uwsm.waylandCompositors.hyprland = {
+  prettyName = "Hyprland";
+  comment = "Hyprland compositor managed by UWSM";
+  binPath = "/run/current-system/sw/bin/start-hyprland";
+};
+
+services.displayManager.sddm = {
   enable = true;
-  settings.default_session = {
-    command = "${pkgs.tuigreet}/bin/tuigreet --time --cmd Hyprland";
-    user = "greeter";
-  };
+  wayland.enable = true;
 };
 ```
 
-A lightweight TUI login screen that hands off directly into Hyprland — no
-display manager GUI, no session picker.
+Tried `greetd` + `regreet` (itself run inside the `cage` kiosk compositor)
+first, but the session never got through to a working Hyprland session on
+this hardware. Switched to SDDM, which has native Wayland session support
+and is one of the few display managers Hyprland's own docs call out as
+working without caveats. Like regreet, SDDM reads
+`/share/wayland-sessions/*.desktop` and shows a session picker — pick
+**"Hyprland (UWSM)"** at login, not the plain "Hyprland" entry the
+`programs.hyprland` module also registers.
+
+**The greeter was never actually the problem — twice.** Both regreet and
+SDDM handed off correctly. Two separate bugs made it look like a greeter
+issue:
+
+1. The `AQ_DRM_DEVICES` colon-parsing bug described above (Aquamarine
+   found zero GPUs and Hyprland aborted at startup — no frame ever drawn).
+2. home-manager's `wayland.windowManager.hyprland` module defaults
+   `systemd.enable = true`, which runs `systemctl --user stop
+   hyprland-session.target && start ...` on every Hyprland startup to push
+   env vars into dbus. That target's `BindsTo`/`PropagatesStopTo` chain
+   through UWSM's own `wayland-session@Hyprland.target` down to
+   `wayland-wm@Hyprland.service` meant this cascade-stopped Hyprland
+   *itself* a couple seconds after it started rendering (briefly visible
+   cursor, then back to the login screen). Fixed by setting
+   `wayland.windowManager.hyprland.systemd.enable = false;` in
+   `home/programs/hyprland.nix` — see [hyprland.md](hyprland.md) for the
+   full unit chain. UWSM already owns this integration; home-manager's
+   copy was redundant and actively harmful.
+
+If login-but-no-Hyprland happens again, check BOTH failure classes before
+touching the display manager: `~/.cache/hyprland/hyprlandCrashReport*.txt`
++ `journalctl -b --user` for a crash at startup (bug #1's family), and
+`coredumpctl list` for a crash a couple seconds into a session that did
+render something (bug #2's family, or a genuine multi-GPU crash — see the
+`AQ_DRM_DEVICES` note above).
+
+`withUWSM = true` plus the `programs.uwsm.waylandCompositors.hyprland` block
+above is what generates that "Hyprland (UWSM)" entry: it launches Hyprland
+via `uwsm start -F -- Hyprland` instead of exec'ing it bare, which folds the
+compositor into systemd's `graphical-session.target` /
+`xdg-desktop-autostart.target` — this is also what silences Hyprland's own
+"started without hyprland-session.target, not recommended unless debugging"
+warning. Picking the plain "Hyprland" entry still works, but skips that
+integration and brings the warning back.
 
 ## Audio: PipeWire
 

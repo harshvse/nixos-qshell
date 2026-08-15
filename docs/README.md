@@ -14,7 +14,7 @@ that file on disk is the ground truth; these docs describe it.
 
 | File | Covers |
 |---|---|
-| [system.md](system.md) | NixOS system layer: `hosts/nixos/configuration.nix` — boot, networking, hybrid NVIDIA/Intel graphics, greetd, audio, fonts, user account |
+| [system.md](system.md) | NixOS system layer: `hosts/nixos/configuration.nix` — boot, networking, hybrid NVIDIA/Intel graphics, SDDM, audio, fonts, user account |
 | [flake.md](flake.md) | `flake.nix` — inputs, how the host and home-manager are wired together |
 | [theming.md](theming.md) | The wallust-driven, wallpaper-reactive theming system — the architecture that ties every app below together |
 | [hyprland.md](hyprland.md) | `home/programs/hyprland.nix` — monitors, input, keybinds, animations, autostart |
@@ -31,7 +31,7 @@ that file on disk is the ground truth; these docs describe it.
 
 ```
 flake.nix
-  └─ hosts/nixos/configuration.nix   (system: boot, drivers, greetd, users)
+  └─ hosts/nixos/configuration.nix   (system: boot, drivers, SDDM, users)
        └─ home-manager module
             └─ home/home.nix          (imports every module below + loose packages)
                  ├─ programs/fish.nix

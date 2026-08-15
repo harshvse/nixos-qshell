@@ -84,6 +84,29 @@
     LIBVA_VDPAU_DRIVER = "nvidia";
     __GLX_VENDOR_LIBRARY_NAME = "nvidia";
     WLR_NO_HARDWARE_CURSORS = "1"; # fixes invisible/corrupt cursor on nvidia
+    # eDP-1 is wired to the Intel iGPU (card1, PCI 00:02.0), HDMI-A-1 to the
+    # NVIDIA GPU (card0). Aquamarine only scans/uses cards listed here, so
+    # both must be present or the card not listed simply won't show its
+    # monitor. List is `:`-separated, first entry is primary.
+    #
+    # Must be raw /dev/dri/cardN nodes, NOT /dev/dri/by-path/* symlinks:
+    # Aquamarine parses AQ_DRM_DEVICES as a `:`-separated list, and by-path
+    # names contain colons themselves (pci-0000:00:02.0-card), so a by-path
+    # value gets shredded into 3 bogus paths, Aquamarine finds zero GPUs, and
+    # Hyprland aborts in CCompositor::initServer before a single frame is
+    # drawn. (card1 confirmed as the Intel device via
+    # `readlink /dev/dri/by-path/pci-0000:00:02.0-card`.)
+    #
+    # A previous version of this pinned Intel-only (card1) after Hyprland
+    # crashed a few seconds after login with "Cannot commit when a
+    # page-flip is awaiting" during a cross-GPU commit. That pin was
+    # written before the colon-parsing bug above was diagnosed, so it's
+    # unclear whether that crash was a genuine multi-GPU issue or just this
+    # same zero-GPUs-found bug — worth re-testing with both cards listed
+    # (as below) before assuming HDMI-A-1 needs Intel-only. If Hyprland
+    # crashes again a few seconds in, revert to `"/dev/dri/card1"` alone and
+    # treat HDMI-A-1 as unsupported until fixed upstream.
+    AQ_DRM_DEVICES = "/dev/dri/card1:/dev/dri/card0";
   };
 
   ##################
@@ -92,6 +115,28 @@
   programs.hyprland = {
     enable = true;
     xwayland.enable = true;
+    # Launch via UWSM so Hyprland gets folded into systemd's
+    # graphical-session.target/xdg-desktop-autostart.target instead of
+    # running as a bare unmanaged process — silences the "Hyprland was
+    # started without hyprland-session.target, not recommended unless
+    # debugging" warning and gives XDG autostart units + a proper user
+    # session for free.
+    withUWSM = true;
+  };
+
+  # Registers a "Hyprland (UWSM)" entry in /share/wayland-sessions so
+  # the greeter's session picker launches it via `uwsm start -F --`,
+  # matching what withUWSM above expects instead of execing Hyprland bare.
+  #
+  # binPath must be `start-hyprland`, not the raw `Hyprland` binary: the
+  # bare binary logs "WARNING: Hyprland is being launched without
+  # start-hyprland. This is highly advised against." on every startup.
+  # `start-hyprland` is the wrapper Hyprland itself ships for exactly this
+  # (systemd/uwsm) launch path — see hyprwm/Hyprland discussion #12661.
+  programs.uwsm.waylandCompositors.hyprland = {
+    prettyName = "Hyprland";
+    comment = "Hyprland compositor managed by UWSM";
+    binPath = "/run/current-system/sw/bin/start-hyprland";
   };
 
   xdg.portal = {
@@ -99,15 +144,15 @@
     extraPortals = [ pkgs.xdg-desktop-portal-hyprland ];
   };
 
-  # Lightweight login manager that hands off straight into Hyprland
-  services.greetd = {
+  # Graphical login screen. regreet (run inside cage) never got past the
+  # greeter on this box, so use SDDM instead — it has native Wayland
+  # session support and is one of the few display managers Hyprland's own
+  # docs call out as working without caveats. Presents a session picker
+  # built from /share/wayland-sessions, so pick "Hyprland (UWSM)" at login
+  # rather than the plain "Hyprland" entry.
+  services.displayManager.sddm = {
     enable = true;
-    settings = {
-      default_session = {
-        command = "${pkgs.tuigreet}/bin/tuigreet --time --cmd Hyprland";
-        user = "greeter";
-      };
-    };
+    wayland.enable = true;
   };
 
   ##################

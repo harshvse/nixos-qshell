@@ -57,8 +57,8 @@ This file is just the quickstart.
    This will take a while the first time — it's compiling/fetching Hyprland,
    the NVIDIA driver, and everything else in the config.
 
-7. **Reboot.** You should land on the `tuigreet` login screen; log in and
-   it drops you straight into Hyprland.
+7. **Reboot.** You should land on the SDDM login screen; pick the
+   "Hyprland (UWSM)" session, log in, and it drops you into Hyprland.
 
 8. **Commit and push:**
    ```bash
@@ -113,6 +113,18 @@ systemd-boot menu — every successful `nixos-rebuild switch` adds one.
   ```bash
   nvidia-offload <command>
   ```
+- **Login screen appears, you log in, but you never land in Hyprland**: this
+  is a Hyprland crash, not a display-manager problem — check
+  `~/.cache/hyprland/hyprlandCrashReport*.txt` for a crash at startup (often
+  the `AQ_DRM_DEVICES` env var pointing at a `/dev/dri/by-path/*` symlink
+  instead of a raw `/dev/dri/cardN` node), or `coredumpctl list` for a crash
+  a couple seconds into a session that briefly rendered something (often
+  home-manager's `wayland.windowManager.hyprland.systemd.enable` fighting
+  with UWSM). See docs/system.md for both.
+- **External monitor never shows up in `hyprctl monitors`**: `AQ_DRM_DEVICES`
+  only scans the GPU(s) listed in it — if your external monitor's cable is
+  on a different GPU than the one currently listed, add it (colon-separated,
+  e.g. `"/dev/dri/card1:/dev/dri/card0"`). See docs/system.md.
 
 See [docs/system.md](docs/system.md) for the full breakdown of the graphics
 setup.
